@@ -1,2 +1,43 @@
-
 Python code for analysis of ChIP-seq and RNA-seq data.
+
+* DATA SOURCES FOR HMM
+- OMP meDIP (eventually)
+- Ngn meDIP (eventually)
+
+- OMP hmeDIP 
+- Ngn hmeDIP
+- ICAM hmeDIP
+
+- OMP mk4
+- Ngn mk4
+
+- OMP mRNA-seq
+- Ngn mRNA-seq
+
+* DATA SOURCES FOR CORRELATION
+- transcript (knownGene)
+- gene (kgXref)
+- PhastCons 30way align (phastCons30Way)
+- GC content (gc5Base)
+- CpG island (cpgIslandExt)
+- repeat (simpleRepeat)
+
+* DATA MODEL
+Each row is a 100 bp window of the genome.
+WindowRow:
+    - chr (int)
+    - start (int)
+    - end (int)
+    - omp_expressed (binary)
+    - ngn_expressed (binary)
+    - omp_hmedip (int)
+    - ngn_hmedip (int)
+    - icam_hmedip (int)
+    - omp_mk4 (int)
+    - ngn_mk4 (int)
+    - tss_dist (int) [-2kb..2kb] or INF
+    - tse_dist (int) [-2kb..2kb] or INF
+    - exon_start (binary)
+    - coding_seq (binary)
+    - in_gene (binary)
+    - in_exon (binary)

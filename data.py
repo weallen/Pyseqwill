@@ -1,9 +1,19 @@
 #!/usr/bin/env python
 
+import common
 import pysam
-
+import tables
 import features
+import math
+import itertools
 
+class GenomePostion(tables.IsDescription):
+    chr = StringCol(5)
+    pos = UInt32Col()
+    src = StringCol(16)
+    type = StringCol(16)
+    val = UInt32Col()
+    
 class GFFFeature:
     def __init__(self, seqname, source, feature, start,\
                     end, score, strand, frame, attr):
@@ -16,8 +26,7 @@ class GFFFeature:
         self.strand = strand
         self.frame = frame
         self.attr = attr
-
-   
+ 
 
 def parse_gtf_attr(attr):
     attrs = attr.split(";")
@@ -78,6 +87,56 @@ def build_kg_genes(trans, kgxref):
             genes[sym].add_transcript(trans[txid])
     return genes
 
+def load_genome(genome_fasta):
+    f = pysam.Fastafile(genome_fasta)
+    return f
+
 def load_bam_file(bam_file_name):
     f = pysam.Sam.file(bam_file_name, "rb")
     return f
+
+class Genome:
+    def __init__(self, fasta):
+        self.fasta = fasta
+        self.sizes = {}
+        for chr in common.CHROMOSOMES:
+            self.sizes = _chromosome_size(chr)
+         
+    def partition(self, part_size):
+        chr_ranges = {}
+        for chr in common.CHROMOSOMES:
+            chr_ranges[chr] = []
+            chr_size = self.sizes[chr]
+            for i in xrange(0, chr_size, part_size):
+                if i + part_size < chr_size:
+                    chr_ranges[chr].append((i,i+part_size))
+                else:
+                    chr_ranges[chr].append((i, chr_size))
+        return chr_ranges
+
+    def _chromosome_size(self, chr):
+        return len(self.fasta.fetch(chr))
+    
+    
+class Coverage:
+    def __init__(self, bam, genome):
+        self.genome = genome
+        self.part_size = 200
+        self.ranges = genome.partition(self.part_size)
+        self.bam = bam 
+        for chr, parts in self.ranges.iteritems():
+            num_intervals = len(parts)
+            self.pileup[chr] = [i for i in itertools.repeat(0, num_intervals)]
+         
+
+    def compute_tag_overlap(self):
+        pileup = {}
+        for chr, rng in self.ranges.iteritems():
+            p = self.bam.pileup(chr, rng[0], rng[1])
+            for col in p:
+                start = col.pos + 350
+                chr_len = self.genome.sizes[chr]
+                bin = int(math.floor(start / chr_len))
+                pileup[chr][bin] += col.n
+        return pileup
+
