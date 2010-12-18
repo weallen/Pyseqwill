@@ -2,17 +2,18 @@
 
 import common
 import pysam
-import tables
+#import tables
 import features
 import math
 import itertools
+import numpy
 
-class GenomePostion(tables.IsDescription):
-    chr = StringCol(5)
-    pos = UInt32Col()
-    src = StringCol(16)
-    type = StringCol(16)
-    val = UInt32Col()
+#class GenomePostion(tables.IsDescription):
+#    chr = StringCol(5)
+#    pos = UInt32Col()
+#    src = StringCol(16)
+#    type = StringCol(16)
+#    val = UInt32Col()
     
 class GFFFeature:
     def __init__(self, seqname, source, feature, start,\
@@ -92,51 +93,69 @@ def load_genome(genome_fasta):
     return f
 
 def load_bam_file(bam_file_name):
-    f = pysam.Sam.file(bam_file_name, "rb")
+    f = pysam.Samfile(bam_file_name, "rb")
     return f
 
 class Genome:
     def __init__(self, fasta):
-        self.fasta = fasta
+        self.fasta = load_genome(fasta)
         self.sizes = {}
         for chr in common.CHROMOSOMES:
-            self.sizes = _chromosome_size(chr)
+            self.sizes[chr] = self._chromosome_size(chr)
          
     def partition(self, part_size):
-        chr_ranges = {}
+        parts = {}
         for chr in common.CHROMOSOMES:
-            chr_ranges[chr] = []
-            chr_size = self.sizes[chr]
-            for i in xrange(0, chr_size, part_size):
-                if i + part_size < chr_size:
-                    chr_ranges[chr].append((i,i+part_size))
-                else:
-                    chr_ranges[chr].append((i, chr_size))
-        return chr_ranges
+            parts[chr] = PartitionIterator(self.sizes[chr], part_size) 
+        return parts
 
     def _chromosome_size(self, chr):
         return len(self.fasta.fetch(chr))
-    
-    
+
+class PartitionIterator:
+    def __init__(self, chr_size, part_size):
+        self.chr_size = chr_size
+        self.part_size = part_size
+        self.i = 0
+
+    def next(self):
+        start = self.i
+        if start == self.chr_size:
+            raise StopIteration
+        if self.i + self.part_size < self.chr_size:
+            self.i += self.part_size
+        else:
+            self.i = self.chr_size
+        return (start, self.i)  
+ 
+    def __iter__(self):
+        return self
+
+    def __len__(self):
+        return int(math.floor(self.chr_size / self.part_size))
+ 
 class Coverage:
     def __init__(self, bam, genome):
         self.genome = genome
         self.part_size = 200
         self.ranges = genome.partition(self.part_size)
-        self.bam = bam 
+        self.bam = load_bam_file(bam)
+        self.pileup = {}
         for chr, parts in self.ranges.iteritems():
             num_intervals = len(parts)
-            self.pileup[chr] = [i for i in itertools.repeat(0, num_intervals)]
-         
-
-    def compute_tag_overlap(self):
-        pileup = {}
-        for chr, rng in self.ranges.iteritems():
-            p = self.bam.pileup(chr, rng[0], rng[1])
-            for col in p:
-                start = col.pos + 350
-                chr_len = self.genome.sizes[chr]
-                bin = int(math.floor(start / chr_len))
-                pileup[chr][bin] += col.n
-        return pileup
-
+            self.pileup[chr] = numpy.zeros(num_intervals)
+        self._compute_tag_overlaps()
+        self.bam.close()
+ 
+    def _compute_tag_overlaps(self):
+        for chr, rng_iter in self.ranges.iteritems():
+            print "Tag overlaps for chr ", chr
+            chr_len = self.genome.sizes[chr]
+            for rng in rng_iter:
+                reads = self.bam.fetch(chr, 0, chr_len)
+                for read in reads:
+                    start = read.pos + 350
+                    if start > chr_len:
+                        start = chr_len
+                    bin = int(math.floor(start / self.part_size))-1
+                    self.pileup[chr][bin] += 1
