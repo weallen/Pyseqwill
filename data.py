@@ -2,19 +2,13 @@
 
 import common
 import pysam
-#import tables
+import tables
 import features
 import math
 import itertools
 import numpy
 
-#class GenomePostion(tables.IsDescription):
-#    chr = StringCol(5)
-#    pos = UInt32Col()
-#    src = StringCol(16)
-#    type = StringCol(16)
-#    val = UInt32Col()
-    
+       
 class GFFFeature:
     def __init__(self, seqname, source, feature, start,\
                     end, score, strand, frame, attr):
@@ -137,25 +131,23 @@ class PartitionIterator:
 class Coverage:
     def __init__(self, bam, genome):
         self.genome = genome
-        self.part_size = 200
-        self.ranges = genome.partition(self.part_size)
+        self.part_size = common.WINDOW_SIZE
         self.bam = load_bam_file(bam)
         self.pileup = {}
-        for chr, parts in self.ranges.iteritems():
-            num_intervals = len(parts)
-            self.pileup[chr] = numpy.zeros(num_intervals)
+        for chr in common.CHROMOSOMES:
+            num_intervals = int(math.floor(self.genome.sizes[chr] / self.part_size))
+            self.pileup[chr] = numpy.zeros(num_intervals+1)
         self._compute_tag_overlaps()
         self.bam.close()
- 
+
+    # TODO Check with brad about which way to extend start
     def _compute_tag_overlaps(self):
-        for chr, rng_iter in self.ranges.iteritems():
-            print "Tag overlaps for chr ", chr
+        for chr in common.CHROMOSOMES:
             chr_len = self.genome.sizes[chr]
-            for rng in rng_iter:
-                reads = self.bam.fetch(chr, 0, chr_len)
-                for read in reads:
-                    start = read.pos + 350
-                    if start > chr_len:
-                        start = chr_len
-                    bin = int(math.floor(start / self.part_size))-1
-                    self.pileup[chr][bin] += 1
+            reads = self.bam.fetch(chr, 0, chr_len)
+            for read in reads:
+                start = read.pos + 350
+                if start > chr_len:
+                    start = chr_len
+                bin = int(math.floor(start / self.part_size))
+                self.pileup[chr][bin] += 1
