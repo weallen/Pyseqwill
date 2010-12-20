@@ -1,0 +1,9 @@
+
+env = Environment()
+env.Program(target='hmm', source=['hmm.cpp','main.cpp'])
+env.Append(LIBS = ['hdf5_cpp','hdf5'])
+env.Append(CPPPATH = ['/gpfs/runtime/opt/hdf5/1.8.5/include',
+                        '/gpfs/runtime/opt/boost/1.44.0/include'])
+env.Append(LIBPATH = ['/gpfs/runtime/opt/hdf5/1.8.5/lib',
+                        '/gpfs/runtime/opt/boost/1.44.0/lib'])
+env.Append(CCFLAGS="-Wall")

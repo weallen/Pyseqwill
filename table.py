@@ -12,13 +12,20 @@ class GenomeWindow(tables.IsDescription):
     ngn_hmedip = tables.UInt32Col()
     icam_hmedip = tables.UInt32Col() 
 
+def load_seq_data():
+    f = tables.openFile(common.DATA_PATH+"all_data.h5", mode="r")
+    return f.root.seqdata.windows
+
+def data_import():
+    tab = create_seq_table()
+    load_data_info_seq_table(tab)
 
 def create_seq_table():
     h5file = tables.openFile(common.DATA_PATH+"all_data.h5", mode="w", title="hme and chip data")
     group = h5file.createGroup("/", "seqdata", 'Seq data')
     tab = h5file.createTable(group, 'windows', GenomeWindow, "Sliding windows across genome")
     return h5file
- 
+     
 def load_data_into_seq_table(tab):
     window = tab.row
     genome = data.Genome("/gpfs/runtime/bioinfo/bowtie/indexes/mm9_all_folded_with_chrID.fa")
