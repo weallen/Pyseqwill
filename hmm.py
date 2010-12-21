@@ -1,15 +1,13 @@
 from scipy import stats
 import numpy
 import common
+import table
 
 # K = number of hidden states
 # M = number of input marks
 class HMM:
-    def __init__(self, obs, means, thresholds, K):
-        self.obs = obs # table of windows
-        self.means = means
-        self.thresholds = thresholds
-        self.M = len(common.DATA_SETS)
+    def __init__(self, M, K):
+        self.M = M
         self.K = K
         # prob that will transition from state i to state j
         self.trans_probs = numpy.zeros((self.K, self.K))
@@ -19,15 +17,33 @@ class HMM:
 
     def random_init(self):
         self.trans_probs = numpy.random((self.K, self.K))
-
-    def obj_prob(self):
+   
+    def prob(self, obs):
         pass
 
-    def row_obs_prob(self, state, row):
-        calls = self._call_row(row)
+    # Baum-Welch algorithm for determining trans and emit probs
+    def train(self, obs):
+        pass
+
+    def forwards(self, obs):
+        pass
+ 
+    def backwards(self, obs):
+        pass
+    
+    def _count_transitions(self, obs):
+        A = numpy.zeros((self.K, self.K))
+        pass
+
+    def viterbi_decode(self, obs):
+        path = numpy.zeros(len(obs))
+        pass
+
+    # Determines probaility distribution over set of observations 
+    def obs_prob(self, state, obs):
         prob = 1.0
-        for i in range(0,len(calls)-1):
-            call = calls[i] # must be either 0 or 1
+        for i in range(0,len(obs)):
+            call = obs[i] # must be either 0 or 1
             emit_p = self.emission_probs[state, i] # prob of mark i in state
             if call == 1.0:
                 prob *= emit_p
@@ -35,15 +51,21 @@ class HMM:
                 prob *= 1 - emit_p
         return prob
  
-    def _call_row(self, row):
-        calls = numpy.zeros(self.M)
-        i = 0
-        for name in common.DATA_SETS:
-            if row[name] >= self.thresholds[name]:
-                calls[i] = 1.0
-            i += 1
-        return calls
- 
+def call_row(row, thresholds):
+    calls = numpy.zeros(len(common.DATA_SETS))
+    i = 0
+    for name in common.DATA_SETS:
+        if row[name] >= thresholds[name]:
+            calls[i] = 1
+        i += 1
+    return calls
+
+def chr_obs_seq(chr_cov, thresholds):
+    obs = []
+    for row in chr_cov.coverage:
+        obs.append(call_row(row, thresholds))
+    return obs
+
 def find_empirical_means(tab):
     means = {}
     num_windows = len(tab.cols.start)
@@ -54,14 +76,26 @@ def find_empirical_means(tab):
 def find_threshold_vals(means):
     thresholds = {}
     for name in common.DATA_SETS:
-        for i in range(1,10):
+        for i in range(1,15):
             mean = means[name]
             if stats.poisson.pmf(i, mean) < 1E-4: 
                 thresholds[name] = i
                 break
     return thresholds
 
-def init_hmm(tab, K):
+# HMM Training stuff
+
+def train_hmm(tab, K):
+    hmm = HMM(len(common.DATA_SETS), K) 
     means = find_empirical_means(tab)
+    print means
     thresholds = find_threshold_vals(means)    
-    return HMM(tab, means, thresholds, K)
+    print thresholds
+    for chr in common.CHROMOSOMES:
+        chr_cov = table.Chromosome(tab, chr)
+        obs = chr_obs_seq(chr_cov, thresholds) 
+   #     hmm.train(obs)
+    return hmm
+
+
+ 

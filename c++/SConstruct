@@ -1,9 +1,18 @@
-
 env = Environment()
+mymode = ARGUMENTS.get('mode','release')
+if not (mymode in ['debug','release']):
+    print "Error: expected 'debug' or 'release', found: " + mymode
+    Exit(1)
+
+debugflags = ['-g3', '-fno-inline', '-O0', '-Wall']
+releaseflags = ['-O2']
 env.Program(target='hmm', source=['hmm.cpp','main.cpp'])
 env.Append(LIBS = ['hdf5_cpp','hdf5'])
 env.Append(CPPPATH = ['/gpfs/runtime/opt/hdf5/1.8.5/include',
                         '/gpfs/runtime/opt/boost/1.44.0/include'])
 env.Append(LIBPATH = ['/gpfs/runtime/opt/hdf5/1.8.5/lib',
                         '/gpfs/runtime/opt/boost/1.44.0/lib'])
-env.Append(CCFLAGS="-Wall")
+if mymode == 'debug':
+    env.Append(CCFLAGS=debugflags)
+else:
+    env.Append(CCFLAGS=releaseflags)

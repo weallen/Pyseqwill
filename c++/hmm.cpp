@@ -11,8 +11,21 @@ load_seq_data()
     int rank = filespace.getSimpleExtentNdims();
     int ndims = filespace.getSimpleExtentDims(dims, NULL);
     int nrows = dims[0];
-    std::cout << "rank " << rank << ", dimensions " << 
-        (unsigned long)(dims[0]) << " x " << (unsigned long)(dims[1]) << std::endl; 
+    int ncols = 8; 
+    int** data = new int*[nrows];
+    int i, j;
+    int* row;
+    for (i = 0; i < nrows; i++) {
+        row = new int[ncols];
+        data[i] = row;
+    }
+    dataset.read(data, H5::PredType::NATIVE_INT);
+    for (i = 0; i < nrows; i++) {
+        for (j = 0; j < ncols; j++) {
+            std::cout << data[i][j] << " "; 
+        }
+        std::cout << std::endl;
+    }
 }
 
 void

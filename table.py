@@ -3,22 +3,31 @@ import tables
 import data
 
 class GenomeWindow(tables.IsDescription):
-    chr = tables.UInt8Col()
-    start = tables.UInt32Col()
-    end = tables.UInt32Col()
-    omp_mk4 = tables.UInt32Col()
-    ngn_mk4 = tables.UInt32Col()
-    omp_hmedip = tables.UInt32Col()
-    ngn_hmedip = tables.UInt32Col()
-    icam_hmedip = tables.UInt32Col() 
+    chr = tables.Int8Col()
+    start = tables.Int32Col()
+    end = tables.Int32Col()
+    omp_mk4 = tables.Int32Col()
+    ngn_mk4 = tables.Int32Col()
+    omp_hmedip = tables.Int32Col()
+    ngn_hmedip = tables.Int32Col()
+    icam_hmedip = tables.Int32Col() 
+
+class Chromosome:
+    def __init__(self, tab, chr):
+        self.tab = tab
+        self.chr = common.CHR_TO_NUM[chr]
+        self.coverage = [r for r in self.tab.readWhere("chr == %d" % self.chr)]
+        sorted(self.coverage, key=lambda x: x["start"])
+    
 
 def load_seq_data():
     f = tables.openFile(common.DATA_PATH+"all_data.h5", mode="r")
     return f.root.seqdata.windows
 
-def data_import():
-    tab = create_seq_table()
-    load_data_info_seq_table(tab)
+def import_seq_data():
+    f = create_seq_table()
+    tab = f.root.seqdata.windows
+    load_data_into_seq_table(tab)
 
 def create_seq_table():
     h5file = tables.openFile(common.DATA_PATH+"all_data.h5", mode="w", title="hme and chip data")

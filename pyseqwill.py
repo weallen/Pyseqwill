@@ -6,9 +6,7 @@ import data
 
 def main():
     tab = table.load_seq_data()
-    h = hmm.init_hmm(tab, 5)
-    for row in tab:
-        print h.call_row(row)
+    h = hmm.train_hmm(tab, 5)
 
 if __name__ == '__main__':
     main()

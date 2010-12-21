@@ -146,7 +146,11 @@ class Coverage:
             chr_len = self.genome.sizes[chr]
             reads = self.bam.fetch(chr, 0, chr_len)
             for read in reads:
-                start = read.pos + 350
+                start = read.pos 
+                if (read.flag & 0x0010) == 0x0010:
+                    start += 350 + read.rlen
+                else:
+                    start -= 350 + read.rlen
                 if start > chr_len:
                     start = chr_len
                 bin = int(math.floor(start / self.part_size))
