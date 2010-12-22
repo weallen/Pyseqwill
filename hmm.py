@@ -4,34 +4,8 @@ import common
 import table
 import math
 
-LOGZERO = float('nan')
-
-def eln(x):
-    if x == 0:
-        return LOGZERO
-    elif x > 0:
-        return math.log(x)
-    else:
-        except ValueError
-
-def eexp(x):
-    if math.isnan(x):
-        return 0
-    return math.exp(x)
-
-def elnsum(x, y):
-    if math.isnan(x) or math.isnan(y):
-        if math.isnan(x):
-            return y
-        return x
-    if x > y:
-        x + eln(1 + math.exp(y - x)
-    return y + eln(1 + math.exp(x - y)
-            
-def elnproduct(x, y):
-    if math.isnan(x) or math.isnan(y):
-        return LOGZERO
-    return x + y
+import pyximport; pyximport.install()
+import cHMM
 
 # K = number of hidden states
 # M = number of input marks
@@ -49,6 +23,7 @@ class HMM:
         self.trans_probs = numpy.random.random((self.K, self.K))
         self.start_probs = numpy.random.random(self.K) 
         self.emission_probs = numpy.random.random((self.K, self.M))
+
     def prob(self, obs):
         pass
 
@@ -56,32 +31,37 @@ class HMM:
     def train(self, obs):
         pass
 
-    # AFter "Numerically Stable Hidden markov Model Implementation"
+    # AFter "Numerically Stable Hidden markov Model Implementation" by Tobias Mann
     def forward(self, obs):
         T = obs.shape[0]
-        alpha = numpy.zeros((T, self.K)) 
-#        alpha[0] = numpy.ones(self.K)
+        alpha = numpy.zeros((T, self.K))
+        scale = numpy.zeros(T)
         alpha[0] = self.start_probs * self.all_obs_prob(obs[0])
+        scale[0] = sum(alpha[0])
+        alpha[0] /= scale[0]
+#        alpha[0, :] = numpy.ones(self.K)
         for t in xrange(1, T): 
             obs_probs = self.all_obs_prob(obs[t])
-            s = sum(obs_probs) 
-            for i in range(0, self.K):              
-                alpha[t, i] = sum(self.trans_probs[:,i] * alpha[t-1]) 
-            alpha[t] *= obs_probs
-        if t % 1000 ==0 :
-            print t, alpha[t]
-        return sum(alpha[T-1] * self.start_probs)
+            alpha[t] = numpy.array([sum(alpha[t-1] * self.trans_probs[:,j]) for j in range(0, self.K)]) * obs_probs
+            s = sum(alpha[t, :])
+            scale[t] = s
+            alpha[t] = alpha[t, :]/s
+        print alpha[T-1] 
+        return (alpha, scale)
  
-    def backward(self, obs):
+    def backward(self, obs, scale):
         T = obs.shape[0]
         beta = numpy.zeros((T, self.K))
         obs_probs = self.all_obs_prob(obs[T-1])
-        beta[T - 1] = numpy.array([sum(self.trans_probs[j,:] * obs_probs) for j in range(0, self.K)]) 
-        for t in xrange(T-1, 0, -1):
-            obs_probs = self.all_obs_prob(obs[t])
-            beta[t-1] = numpy.array([sum(beta[t] * obs_probs * self.trans_probs[j,:]) for j in range(0, self.K)])
-        return sum(self.starts_probs * self.all_obs_prob(obs[0]) * beta[0])
-    
+        beta[T - 1] = numpy.array([sum(self.trans_probs[j,:] * obs_probs) for j in range(0, self.K)]) / scale[T - 1]
+        #beta[T - 1, :] = self.start_probs
+        for t in xrange(T-2, -1, -1):
+            obs_probs = self.all_obs_prob(obs[t+1])
+            beta[t] = numpy.array([sum(beta[t+1] * obs_probs * self.trans_probs[j,:]) for j in range(0, self.K)]) / scale[t]
+        #return sum(self.starts_probs * self.all_obs_prob(obs[0]) * beta[0])
+        print beta[0]
+        return beta
+ 
     def _count_transitions(self, obs):
         A = numpy.zeros((self.K, self.K))
         pass
@@ -147,8 +127,14 @@ def train_hmm(tab, K):
     print "MEANS ", means
     thresholds = find_threshold_vals(means)    
     print "THRESHOLDS ", thresholds
+    A = numpy.zeros(hmm.M)
+    E = numpy.zeros(hmm.M)
     for chr in common.CHROMOSOMES:
+        print chr
         chr_cov = table.Chromosome(tab, chr)
-        obs = chr_obs_seq(chr_cov, thresholds) 
-        print hmm.forward(obs)
+        obs = chr_obs_seq(chr_cov, thresholds)
+        print obs.shape[0]
+        alpha, scale = hmm.forward(obs)
+        print "got to backward"
+        beta = hmm.backward(alpha, scale)
     return hmm 
