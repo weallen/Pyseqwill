@@ -43,6 +43,7 @@ def find_threshold_vals(means):
 
 def train_hmm(tab, K):
     hmm = cHMM.HMM(len(common.DATA_SETS), K) 
+    hmm.test()
     hmm.random_init()
     means = find_empirical_means(tab)
     print "MEANS ", means
@@ -54,8 +55,10 @@ def train_hmm(tab, K):
         print chr
         chr_cov = table.Chromosome(tab, chr)
         obs = chr_obs_seq(chr_cov, thresholds)
-        print obs.shape[0]
-        alpha, scale = cHMM.forward(hmm, obs)
+        hmm.set_obs(obs)
+        alpha, scale = hmm.forward()
+        print alpha[len(obs)-1]
         print "got to backward"
-        beta = cHMM.backward(hmm, alpha, scale)
+        beta = hmm.backward(scale)
+        print beta[0]
     return hmm 
