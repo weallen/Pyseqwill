@@ -16,17 +16,17 @@ def call_row(row, thresholds):
     calls = numpy.array([is_over_thresh(row[name], thresholds[name]) for name in common.DATA_SETS])
     return calls
 
+# chr_cov is 2D (num datasets x num windows) matrix of window counts
 def chr_obs_seq(chr_cov, thresholds):
-    obs = numpy.zeros((len(chr_cov.coverage), len(common.DATA_SETS)), int)
-    for i in xrange(0,len(chr_cov.coverage)):
-        obs[i] = call_row(chr_cov.coverage[i], thresholds)
+    obs = numpy.zeros((len(chr_cov), len(common.DATA_SETS)), dtype=numpy.int32)
+    for i in xrange(0,chr_cov):
+        obs[i] = call_row(chr_cov[i], thresholds)
     return obs
 
-def find_empirical_means(tab):
+def find_empirical_means(sd):
     means = {}
-    num_windows = float(sum(1 for row in tab))
     for name in common.DATA_SETS:
-        means[name] = round(sum(row[name] for row in tab)/num_windows)
+        means[name] = round(numpy.mean(sd.data[name]))
     return means
 
 def find_threshold_vals(means):
@@ -41,11 +41,10 @@ def find_threshold_vals(means):
 
 # HMM Training stuff
 
-def train_hmm(tab, K):
+def train_hmm(sd, K):
     hmm = cHMM.HMM(len(common.DATA_SETS), K) 
-    hmm.test()
     hmm.random_init()
-    means = find_empirical_means(tab)
+    means = find_empirical_means(sd)
     print "MEANS ", means
     thresholds = find_threshold_vals(means)    
     print "THRESHOLDS ", thresholds
@@ -53,10 +52,8 @@ def train_hmm(tab, K):
     E = numpy.zeros(hmm.M)
     for chr in common.CHROMOSOMES:
         print chr
-        chr_cov = table.Chromosome(tab, chr)
+        chr_cov = sd.get_all_by_chr(chr)
         obs = chr_obs_seq(chr_cov, thresholds)
-        hmm.set_obs(obs)
-        alpha, scale = hmm.forward()
         print alpha[len(obs)-1]
         print "got to backward"
         beta = hmm.backward(scale)

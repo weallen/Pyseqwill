@@ -2,8 +2,10 @@ import ctypes
 import numpy as np
 cimport numpy as np
 cdef extern from "math.h":
-    float exp(float x)
-    float log(float x)
+    cdef extern float exp(float x)
+    cdef extern float log(float x)
+    cdef extern float sqrt(float x)
+    cdef extern float pow(float x, float exponent)
 
 ctypedef np.float64_t dtype_t
 
@@ -25,8 +27,15 @@ class HMM:
 
     def random_init(self):
         self.trans_probs = np.random.random((self.K, self.K))
+        for i in range(self.K):
+            norm = sum(self.trans_probs[i])
+            for j in range(self.K):
+                self.trans_probs[i, j] /= norm
         self.start_probs = np.random.random(self.K) 
-        self.emission_probs = np.random.random((self.K, self.M))
+        norm = sum(self.start_probs)
+        for i in range(self.K):
+            self.start_probs[i] /= norm
+        self.emission_probs = np.ones((self.K, self.M))
 
     def prob(self, obs):
         pass
@@ -48,19 +57,27 @@ class HMM:
 cdef chmm_forward_backward(hmm):
     cdef int T = hmm.all_obs_probs.shape[0]
     cdef int K = hmm.K
+    cdef np.ndarray[dtype_t, ndim=1] scale = np.zeros(K, dtype=np.float64)
     cdef np.ndarray[dtype_t, ndim=2] alpha = np.zeros((T, K), dtype=np.float64)
     cdef np.ndarray[dtype_t, ndim=2] beta = np.zeros((T, K), dtype=np.float64)
     cdef np.ndarray[dtype_t, ndim=2] gamma = np.zeros((T, K), dtype=np.float64)
     cdef np.ndarray[dtype_t, ndim=2] eta = np.zeros((T, K), dtype=np.float64)
-    float loglik = chmm_forward(hmm, alpha)
-    chmm_backward(hmm, beta)
-    chmm_state_prob(hmm, gamma, alpha, beta) 
-    chmm_next_state_prob(hmm, eta, alpha, beta)
+    int iters = 0
+    float prev_loglik = -999999999.0
+    float loglik = chmm_forward(hmm, alpha, scale)
+    while  iters < common.MAX_ITERS and loglik > prev_loglik:
+        loglik = chmm_forward(hmm, alpha, scale)
+        chmm_backward(hmm, beta, scale)
+        chmm_state_prob(hmm, gamma, alpha, beta) 
+        chmm_reestimate_parameters(hmm, eta, alpha, beta)
+        prev_loglik = loglik  
+        iters += 1
 
 cdef chmm_decode(hmm):
     return 1
 
-cdef chmm_state_prob(hmm, np.ndarray[dtype_t, ndim=2] eta,
+
+cdef chmm_reestimate_parameters(hmm, np.ndarray[dtype_t, ndim=2] eta, 
                 np.ndarray[dtype_t, ndim=2] alpha, 
                 np.ndarray[dtype_t, ndim=2] beta):    
     pass
@@ -75,13 +92,12 @@ cdef chmm_state_prob(hmm, np.ndarray[dtype_t, ndim=2] gamma,
     for t from 0 <= t < T:
         for i from 0 <= i < K:
             gamma[t, i] = alpha[t, i] * beta[t, i]
-        chmm_normalize_in_place(gamma, t, K)
+#        chmm_normalize_in_place(gamma, t, K)
    
 # AFter "Numerically Stable Hidden markov Model Implementation" by Tobias Mann
-cdef chmm_forward(hmm, np.ndarray[dtype_t, ndim=2] alpha):
+cdef chmm_forward(hmm, np.ndarray[dtype_t, ndim=2] alpha, np.ndarray[dtype_t, ndim=1] scale):
     cdef int K = hmm.K
     cdef int T = hmm.all_obs_probs.shape[0]
-    cdef np.ndarray[dtype_t, ndim=1] scale = np.zeros(T, dtype=np.float64)
     cdef np.ndarray[dtype_t, ndim=2] trans_probs = hmm.trans_probs
     cdef np.ndarray[dtype_t, ndim=1] start_probs = hmm.start_probs
     cdef np.ndarray[dtype_t, ndim=2] all_obs_probs = hmm.all_obs_probs
@@ -97,11 +113,11 @@ cdef chmm_forward(hmm, np.ndarray[dtype_t, ndim=2] alpha):
                 a += alpha[t-1, i] * trans_probs[i, j]
             alpha[t, j] = a * all_obs_probs[t, j]
 #        alpha[t] = np.array([sum(alpha[t-1] * trans_probs[:,j]) for j in range(0, K)]) * obs_probs
-        scale[t] += chmm_normalize_in_place(alpha, t, K)
+        scale[t] = chmm_normalize_in_place(alpha, t, K)
     float loglik = 0;
     for t from 0 <= t < T: 
         loglik += log(scale[t])
-    return loglik
+    return -loglik
  
 cdef chmm_backward(hmm, np.ndarray[dtype_t, ndim=2] beta):
     cdef int T = hmm.all_obs_probs.shape[0]
@@ -111,7 +127,7 @@ cdef chmm_backward(hmm, np.ndarray[dtype_t, ndim=2] beta):
     cdef int j, t, i
 #    beta[T - 1, i] = np.array([sum(trans_probs[j,:] * obs_probs) for j in range(0, K)]) / scale[T - 1]
     for i from 0 <= i < K: 
-        beta[T - 1, i] = 1
+        beta[T - 1, i] = 1/scale[T-1]
     for t in range(T-2, -1, -1):
         for i from 0 <= i < K:
             b = 0
