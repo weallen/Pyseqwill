@@ -13,4 +13,4 @@ CHR_TO_NUM = {"chr1" : 1, "chr2" : 2, "chr3" : 3, "chr4" : 4,\
 
 DATA_PATH = "/gpfs/home/wallen/experiment/experiment/stavros_data/"
 WINDOW_SIZE = 200
-MAX_ITERS = 30
+MAX_ITERS = 1

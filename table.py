@@ -49,11 +49,13 @@ class SeqData:
         return self.data[dataset][chr_start:chr_end]
     
     def get_all_data_by_chr(self, chr):
-        all = []
-        for d in common.DATA_SETS:
-            all.append(self.get_data_by_chr(d, chr))
-        return np.array(all) 
-
+        chr_len = self.chr_bounds[chr][1] - self.chr_bounds[chr][0]
+        all = np.zeros((chr_len, len(common.DATA_SETS)))
+        i = 0
+        for d in common.DATA_SETS: 
+            all[:, i] = self.get_data_by_chr(d, chr)
+            i += 1
+        return all
 def load_seq_data():
     return SeqData(common.DATA_PATH+"all_data.h5")
 
