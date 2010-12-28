@@ -11,7 +11,6 @@ import common
 cdef extern from "math.h":
     cdef float log(float x)
 
-
 ctypedef np.float64_t dtype_t
 
 # K = number of hidden states
@@ -50,7 +49,11 @@ class HMM:
         norm = sum(self.start_probs)
         for i in range(self.K):
             self.start_probs[i] /= norm
-        self.emission_probs = np.ones((self.K, self.M))/self.M
+        self.emission_probs = np.random.random((self.K, self.M))
+        for i in range(self.K):
+            norm = sum(self.emission_probs[i])
+            for j in range(self.M):
+                self.emission_probs[i,j] /= norm
 
     def train(self):
         chmm_forward_backward(self)
@@ -103,18 +106,16 @@ def chmm_forward_backward(hmm):
     beta = np.zeros((T, K), dtype=np.float64)
     gamma = np.zeros((T, K), dtype=np.float64)
     eta = np.zeros((T, K, K), dtype=np.float64)
-    prev_loglik = -999999999.0
-    loglik = chmm_forward(hmm, alpha, scale)
-    print loglik
+    prev_loglik = -float('inf')
+    loglik = 0
     iters = 0
     while iters < common.MAX_ITERS and loglik > prev_loglik:
-        if iters > 0:
-            loglik = chmm_forward(hmm, alpha, scale)
-        print loglik
+        prev_loglik = loglik  
+        loglik = chmm_forward(hmm, alpha, scale)
+        print math.exp(loglik)
         chmm_backward(hmm, beta, scale)
         chmm_state_prob(hmm, eta, gamma, alpha, beta) 
         chmm_reestimate_parameters(hmm, eta, gamma, alpha, beta)
-        prev_loglik = loglik  
         iters += 1
 
 cdef chmm_state_prob(hmm, np.ndarray[dtype_t, ndim=3] eta,
@@ -186,15 +187,21 @@ cdef chmm_forward(hmm, np.ndarray[dtype_t, ndim=2] alpha, np.ndarray[dtype_t, nd
     cdef float loglik = 0.0
     for i from 0 <= i < K:
         alpha[0, i] = start_probs[i] * all_obs_probs[0, i] 
-    scale[0] = chmm_normalize_in_place(alpha, 0, K)
+        scale[0] += alpha[0, i]
+    scale[0] = 1/scale[0]
+    for i from 0 <= i < K:
+        alpha[0, i] = scale[0] * alpha[0, i]
     for t from 1 <= t < T: 
         for j from 0 <= j < K:
-            a = 0
+            a = 0.0
             for i from 0 <= i < K:
                 a += alpha[t-1, i] * trans_probs[i, j]
             alpha[t, j] = a * all_obs_probs[t, j]
 #        alpha[t] = np.array([sum(alpha[t-1] * trans_probs[:,j]) for j in range(0, K)]) * obs_probs
-        scale[t] = chmm_normalize_in_place(alpha, t, K)
+            scale[t] += alpha[t, j]
+        scale[t] = 1/scale[t]
+        for i from 0 <= i < K:
+            alpha[t, i] = scale[t] * alpha[t, i]
     for t from 0 <= t < T: 
         loglik += log(scale[t])
     return -loglik
@@ -207,14 +214,14 @@ cdef chmm_backward(hmm, np.ndarray[dtype_t, ndim=2] beta, np.ndarray[dtype_t, nd
     cdef int j, t, i
 #    beta[T - 1, i] = np.array([sum(trans_probs[j,:] * obs_probs) for j in range(0, K)]) / scale[T - 1]
     for i from 0 <= i < K: 
-        beta[T - 1, i] = 1/scale[T-1]
+        beta[T - 1, i] = scale[T-1]
     for t in range(T-2, -1, -1):
         for i from 0 <= i < K:
             b = 0
             for j from 0 <= j < K:
                 b += trans_probs[i,j] * all_obs_probs[t+1, j] * beta[t+1, j]
 #            beta[t] = np.array([sum(beta[t+1] * obs_probs * trans_probs[j,:]) for j in range(0, K)]) / scale[t]
-            beta[t, i] = b / scale[t]
+            beta[t, i] = b * scale[t]
 
 # Returns an array of the likelihood of emitting each obs for all hidden states  
 cdef chmm_all_obs_prob(hmm, np.ndarray[double, ndim=2] obs):
