@@ -135,23 +135,25 @@ class Coverage:
         self.bam = load_bam_file(bam)
         self.pileup = {}
         for chr in common.CHROMOSOMES:
+            chr_idx = common.CHR_TO_NUM[chr]
             num_intervals = int(math.floor(self.genome.sizes[chr] / self.part_size))
-            self.pileup[chr] = numpy.zeros(num_intervals+1)
+            self.pileup[chr_idx] = numpy.zeros(num_intervals+1)
         self._compute_tag_overlaps()
         self.bam.close()
 
     # TODO Check with brad about which way to extend start
     def _compute_tag_overlaps(self):
         for chr in common.CHROMOSOMES:
+            chr_idx = common.CHR_TO_NUM[chr]
             chr_len = self.genome.sizes[chr]
             reads = self.bam.fetch(chr, 0, chr_len)
             for read in reads:
                 start = read.pos 
                 if (read.flag & 0x0010) == 0x0010:
-                    start += 350 + read.rlen
+                    start += 300 + read.rlen
                 else:
-                    start -= 350 + read.rlen
+                    start -= 300 + read.rlen
                 if start > chr_len:
                     start = chr_len
                 bin = int(math.floor(start / self.part_size))
-                self.pileup[chr][bin] += 1
+                self.pileup[chr_idx][bin] += 1
