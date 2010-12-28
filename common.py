@@ -11,5 +11,6 @@ CHR_TO_NUM = {"chr1" : 1, "chr2" : 2, "chr3" : 3, "chr4" : 4,\
                 "chr13" : 13, "chr14" : 14, "chr15" : 15, "chr16" : 16,\
                 "chr17" : 17, "chr18" : 18, "chrX" : 19, "chrY" : 20}
 
-DATA_PATH = "/gpfs/home/wallen/experiment/experiment/stavros_data/"
+#DATA_PATH = "/gpfs/home/wallen/experiment/experiment/stavros_data/"
+DATA_PATH = "~/Documents/Neuroscience/barnea_lab/rna_seq_experiment/stavros_chip/"
 WINDOW_SIZE = 500
