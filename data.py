@@ -93,17 +93,26 @@ def load_bam_file(bam_file_name):
 class Genome:
     def __init__(self, fasta):
         self.fasta = load_genome(fasta)
-        self.sizes = {}
-        for chr in common.CHROMOSOMES:
-            self.sizes[chr] = self._chromosome_size(chr)
-         
+        self.sizes = []
+        for chr in range(20):
+            self.sizes.append(self._chromosome_size(chr))
+     
+    def num_parts(self, part_size):
+        return int(round(sum(self.sizes)/part_size))
+ 
     def partition(self, part_size):
-        parts = {}
-        for chr in common.CHROMOSOMES:
-            parts[chr] = PartitionIterator(self.sizes[chr], part_size) 
+        parts = []
+        for chr in range(20):
+            parts.append(PartitionIterator(self.sizes[chr], part_size))
         return parts
 
-    def _chromosome_size(self, chr):
+    def _chromosome_size(self, chr_idx):
+        chr_idx += 1
+        chr = 'chr' + str(chr_idx)
+        if chr_idx == 19:
+            chr = 'chrX'
+        elif chr_idx == 20:
+            chr = 'chrY'
         return len(self.fasta.fetch(chr))
 
 class PartitionIterator:
@@ -135,24 +144,25 @@ class Coverage:
         self.bam = load_bam_file(bam)
         self.pileup = {}
         for chr in common.CHROMOSOMES:
-            chr_idx = common.CHR_TO_NUM[chr]
-            num_intervals = int(math.floor(self.genome.sizes[chr] / self.part_size))
+            chr_idx = common.CHR_TO_NUM[chr]-1
+            num_intervals = int(round(math.floor(self.genome.sizes[chr_idx] / self.part_size)))
             self.pileup[chr_idx] = numpy.zeros(num_intervals+1)
         self._compute_tag_overlaps()
         self.bam.close()
 
     # TODO Check with brad about which way to extend start
     def _compute_tag_overlaps(self):
+        shift = int(round(common.FRAGMENT_SIZE/2))
         for chr in common.CHROMOSOMES:
-            chr_idx = common.CHR_TO_NUM[chr]
-            chr_len = self.genome.sizes[chr]
+            chr_idx = common.CHR_TO_NUM[chr]-1
+            chr_len = self.genome.sizes[chr_idx]
             reads = self.bam.fetch(chr, 0, chr_len)
             for read in reads:
                 start = read.pos 
                 if (read.flag & 0x0010) == 0x0010:
-                    start += 300 + read.rlen
+                    start += shift
                 else:
-                    start -= 300 + read.rlen
+                    start -= shift - 1
                 if start > chr_len:
                     start = chr_len
                 bin = int(math.floor(start / self.part_size))

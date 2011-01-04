@@ -1,8 +1,0 @@
-function enrich = chromenrichment ( chrom )
-%CHROMENRICHMENT Returns a vector of 
-%   Detailed explanation goes here
-    empirical_mean = round(mean(chrom))
-    for i=1:15
-        
-end
-

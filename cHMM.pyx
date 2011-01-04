@@ -10,6 +10,8 @@ import math
 import common
 cdef extern from "math.h":
     cdef float log(float x)
+    cdef float log1pf(float x)
+    cdef float expf(float x)
 
 ctypedef np.float64_t dtype_t
 
@@ -97,7 +99,7 @@ def find_threshold_vals(means):
                 thresholds[d] = i
                 break
     return thresholds
-   
+ 
 def chmm_forward_backward(hmm):
     T = hmm.all_obs_probs.shape[0]
     K = hmm.K
@@ -118,6 +120,21 @@ def chmm_forward_backward(hmm):
         chmm_reestimate_parameters(hmm, eta, gamma, alpha, beta)
         iters += 1
 
+cdef viterbi(hmm, np.ndarray[dtype_t, ndim=1] obs):
+    cdef int T = hmm.all_obs_probs.shape[0]
+    cdef int K = hmm.K
+    cdef np.ndarray[dtype_t, ndim=2] l = np.ndarray((T, K), dtype=dtype_t)
+    cdef int i, j, k
+    for i from 0 <= i < T:
+        for j from 0 <= j < K:
+            l[i, j] = -float('inf')
+   
+cdef logadd(dtype_t x, dtype_t y):
+    if (y <= x):
+       return x + log1pf(expf(y - x))
+    else:
+        return y + log1pf(expf(x - y))
+ 
 cdef chmm_state_prob(hmm, np.ndarray[dtype_t, ndim=3] eta,
                 np.ndarray[dtype_t, ndim=2] gamma, 
                 np.ndarray[dtype_t, ndim=2] alpha, 
